@@ -1,0 +1,46 @@
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+def get_db_connection():
+    """Get database connection using DATABASE_URL environment variable."""
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        raise RuntimeError("DATABASE_URL environment variable is not set")
+
+    # Neon generally requires SSL
+    conn = psycopg2.connect(
+        db_url,
+        sslmode="require",
+        cursor_factory=RealDictCursor
+    )
+    return conn
+
+def get_all_shipments():
+    """Fetch all shipments from database."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM shipments ORDER BY created_at DESC")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+def create_shipment(tracking_number, status, origin, destination):
+    """Create a new shipment."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO shipments (tracking_number, status, origin, destination)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id
+                """,
+                (tracking_number, status, origin, destination)
+            )
+            shipment_id = cur.fetchone()["id"]
+            conn.commit()
+            return shipment_id
+    finally:
+        conn.close()
