@@ -7,9 +7,6 @@
     <h3>Add New Shipment</h3>
     <form method="POST" action="/shipments">
         <div style="margin-bottom: 10px;">
-            <label>Tracking Number: <input type="text" name="tracking_number" required style="margin-left: 10px;"></label>
-        </div>
-        <div style="margin-bottom: 10px;">
             <label>Status: 
                 <select name="status" required style="margin-left: 10px;">
                     <option value="Pending">Pending</option>
@@ -24,6 +21,9 @@
         <div style="margin-bottom: 10px;">
             <label>Destination: <input type="text" name="destination" required style="margin-left: 10px;"></label>
         </div>
+        <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">
+            <em>Tracking number will be auto-generated</em>
+        </p>
         <button type="submit" style="background: #4CAF50; color: white; padding: 10px 20px; border: none; cursor: pointer;">Add Shipment</button>
     </form>
 </div>

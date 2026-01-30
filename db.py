@@ -1,13 +1,13 @@
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from datetime import datetime
 
 def get_db_connection():
     """Get database connection using DATABASE_URL environment variable."""
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
         raise RuntimeError("DATABASE_URL environment variable is not set")
-
     # Neon generally requires SSL
     conn = psycopg2.connect(
         db_url,
@@ -15,6 +15,11 @@ def get_db_connection():
         cursor_factory=RealDictCursor
     )
     return conn
+
+def generate_tracking_number():
+    """Generate a unique tracking number based on timestamp"""
+    # Format: TRK-YYYYMMDD-HHMMSS (e.g., TRK-20260130-143022)
+    return f"TRK-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
 
 def get_all_shipments():
     """Fetch all shipments from database."""

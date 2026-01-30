@@ -4,7 +4,7 @@ load_dotenv()
 from flask import Flask, render_template, request, redirect, session, jsonify
 import firebase_admin
 from firebase_admin import credentials, auth
-from db import get_all_shipments, create_shipment
+from db import get_all_shipments, create_shipment, generate_tracking_number
 from mongo_db import log_event, get_all_events, create_event
 
 app = Flask(__name__, template_folder="app/templates")
@@ -90,10 +90,12 @@ def shipments():
     
     if request.method == "POST":
         # Handle form submission
-        tracking_number = request.form.get("tracking_number")
         status = request.form.get("status")
         origin = request.form.get("origin")
         destination = request.form.get("destination")
+        
+        # Auto-generate tracking number
+        tracking_number = generate_tracking_number()
         
         try:
             create_shipment(tracking_number, status, origin, destination)
