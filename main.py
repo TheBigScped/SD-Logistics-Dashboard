@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, redirect, session, jsonify
 import firebase_admin
 from firebase_admin import credentials, auth
 from db import get_all_shipments, create_shipment
+from mongo_db import log_event, get_all_events, create_event
 
 app = Flask(__name__, template_folder="app/templates")
 app.secret_key = "dev-secret"
@@ -96,6 +97,16 @@ def shipments():
         
         try:
             create_shipment(tracking_number, status, origin, destination)
+            
+            # Log event to MongoDB
+            log_event(
+                event_type="shipment_created",
+                tracking_number=tracking_number,
+                status=status,
+                user_id=session.get("user"),
+                metadata={"origin": origin, "destination": destination}
+            )
+            
             return redirect("/shipments")
         except Exception as e:
             print(f"Error creating shipment: {e}")
@@ -123,6 +134,54 @@ def api_shipments():
     except Exception as e:
         print(f"Error in API: {e}")
         return jsonify({"error": "Failed to fetch shipments"}), 500
+
+
+@app.route("/events")
+def events():
+    # Require login
+    if "user" not in session:
+        return redirect("/login")
+    
+    try:
+        all_events = get_all_events(limit=50)
+        return render_template("events.html", events=all_events)
+    except Exception as e:
+        print(f"Error fetching events: {e}")
+        return "Error loading events", 500
+
+
+@app.route("/api/events", methods=["GET", "POST"])
+def api_events():
+    """REST API endpoint for events"""
+    if request.method == "GET":
+        try:
+            all_events = get_all_events(limit=50)
+            return jsonify(all_events), 200
+        except Exception as e:
+            print(f"Error in events API: {e}")
+            return jsonify({"error": "Failed to fetch events"}), 500
+    
+    elif request.method == "POST":
+        # Require login for POST
+        if "user" not in session:
+            return jsonify({"error": "Unauthorized"}), 401
+        
+        data = request.get_json(silent=True) or {}
+        event_type = data.get("type")
+        
+        if not event_type:
+            return jsonify({"error": "Missing 'type' field"}), 400
+        
+        try:
+            event_id = create_event(
+                event_type=event_type,
+                user_id=session.get("user"),
+                **{k: v for k, v in data.items() if k != 'type'}
+            )
+            return jsonify({"id": event_id, "status": "created"}), 201
+        except Exception as e:
+            print(f"Error creating event: {e}")
+            return jsonify({"error": "Failed to create event"}), 500
 
 
 if __name__ == "__main__":

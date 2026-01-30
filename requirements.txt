@@ -1,2 +1,8 @@
 Flask==3.0.0
 firebase-admin
+Flask==3.0.0
+firebase-admin
+psycopg2-binary
+pymongo
+python-dotenv
+
