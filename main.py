@@ -6,9 +6,17 @@ app = Flask(__name__, template_folder="app/templates")
 def dashboard():
     return render_template("dashboard.html")
 
+@app.route("/about")
+def about():
+    return render_template("about.html")
+
+@app.route("/status")
+def status():
+    return render_template("status.html")
+
 @app.errorhandler(404)
 def page_not_found(e):
-    return render_template("base.html"), 404
+    return render_template("404.html"), 404
 
 if __name__ == "__main__":
     app.run(debug=True)
