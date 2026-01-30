@@ -1,30 +1,60 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Login</h2>
-<button onclick="login()">Login with Google</button>
 
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
+<button id="googleLoginBtn" type="button">Login with Google</button>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 
 <script>
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com"
-};
+  console.log("login.html script loaded");
 
-firebase.initializeApp(firebaseConfig);
+  const firebaseConfig = {
+    apiKey: "AIzaSyD1Wkk8tdD73delZA241_VgNZz3JvMY240",
+    authDomain: "sd-logistics-dashboard.firebaseapp.com",
+    projectId: "sd-logistics-dashboard",
+    storageBucket: "sd-logistics-dashboard.firebasestorage.app",
+    messagingSenderId: "435145112540",
+    appId: "1:435145112540:web:0aa83b94627f4d1115ed19"
+  };
 
-function login() {
-  const provider = new firebase.auth.GoogleAuthProvider();
-  firebase.auth().signInWithPopup(provider).then(result => {
-    result.user.getIdToken().then(token => {
-      fetch("/login", {
+  firebase.initializeApp(firebaseConfig);
+
+  let loginInProgress = false;
+
+  async function doLogin() {
+    if (loginInProgress) return;
+    loginInProgress = true;
+
+    try {
+      console.log("login button clicked");
+      const provider = new firebase.auth.GoogleAuthProvider();
+      const result = await firebase.auth().signInWithPopup(provider);
+      const token = await result.user.getIdToken();
+
+      const res = await fetch("/login", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({token: token})
-      }).then(() => window.location = "/");
-    });
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token })
+      });
+
+      console.log("POST /login status:", res.status);
+      window.location = "/";
+    } catch (err) {
+      console.error(err);
+      alert("Login failed: " + err.message);
+      loginInProgress = false;
+    }
+  }
+
+  window.addEventListener("load", () => {
+    const btn = document.getElementById("googleLoginBtn");
+    if (!btn) {
+      console.error("Button not found");
+      return;
+    }
+    btn.addEventListener("click", doLogin);
   });
-}
 </script>
 {% endblock %}
