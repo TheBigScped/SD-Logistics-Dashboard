@@ -31,6 +31,16 @@ def get_all_shipments():
     finally:
         conn.close()
 
+def get_shipment_by_id(shipment_id):
+    """Fetch a single shipment by ID."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM shipments WHERE id = %s", (shipment_id,))
+            return cur.fetchone()
+    finally:
+        conn.close()
+
 def create_shipment(tracking_number, status, origin, destination):
     """Create a new shipment."""
     conn = get_db_connection()
@@ -47,5 +57,37 @@ def create_shipment(tracking_number, status, origin, destination):
             shipment_id = cur.fetchone()["id"]
             conn.commit()
             return shipment_id
+    finally:
+        conn.close()
+
+def update_shipment(shipment_id, status, origin, destination):
+    """Update an existing shipment."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE shipments
+                SET status = %s, origin = %s, destination = %s
+                WHERE id = %s
+                RETURNING id
+                """,
+                (status, origin, destination, shipment_id)
+            )
+            result = cur.fetchone()
+            conn.commit()
+            return result is not None
+    finally:
+        conn.close()
+
+def delete_shipment(shipment_id):
+    """Delete a shipment by ID."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM shipments WHERE id = %s RETURNING id", (shipment_id,))
+            result = cur.fetchone()
+            conn.commit()
+            return result is not None
     finally:
         conn.close()

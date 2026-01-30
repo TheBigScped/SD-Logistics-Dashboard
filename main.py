@@ -4,7 +4,7 @@ load_dotenv()
 from flask import Flask, render_template, request, redirect, session, jsonify
 import firebase_admin
 from firebase_admin import credentials, auth
-from db import get_all_shipments, create_shipment, generate_tracking_number
+from db import get_all_shipments, create_shipment, generate_tracking_number, update_shipment, delete_shipment, get_shipment_by_id
 from mongo_db import log_event, get_all_events, create_event
 
 app = Flask(__name__, template_folder="app/templates")
@@ -17,6 +17,18 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 # Initialize Firebase Admin
 cred = credentials.Certificate("firebase-key.json")
 firebase_admin.initialize_app(cred)
+
+
+def validate_shipment_data(status, origin, destination):
+    """Validate shipment data"""
+    errors = []
+    if not status or not status.strip():
+        errors.append("Status is required")
+    if not origin or not origin.strip():
+        errors.append("Origin is required")
+    if not destination or not destination.strip():
+        errors.append("Destination is required")
+    return errors
 
 
 @app.route("/")
@@ -90,9 +102,14 @@ def shipments():
     
     if request.method == "POST":
         # Handle form submission
-        status = request.form.get("status")
-        origin = request.form.get("origin")
-        destination = request.form.get("destination")
+        status = request.form.get("status", "").strip()
+        origin = request.form.get("origin", "").strip()
+        destination = request.form.get("destination", "").strip()
+        
+        # Validate input
+        errors = validate_shipment_data(status, origin, destination)
+        if errors:
+            return f"Validation errors: {', '.join(errors)}", 400
         
         # Auto-generate tracking number
         tracking_number = generate_tracking_number()
@@ -123,19 +140,196 @@ def shipments():
         return "Error loading shipments", 500
 
 
-@app.route("/api/shipments")
-def api_shipments():
-    """REST API endpoint returning JSON"""
+@app.route("/api/shipments", methods=["GET", "POST"])
+@app.route("/api/shipments/<int:shipment_id>", methods=["GET", "PUT", "DELETE"])
+def api_shipments_full(shipment_id=None):
+    """REST API endpoint for shipments with full CRUD"""
+    
+    # GET single shipment
+    if request.method == "GET" and shipment_id:
+        try:
+            shipment = get_shipment_by_id(shipment_id)
+            if shipment:
+                if shipment.get('created_at'):
+                    shipment['created_at'] = shipment['created_at'].isoformat()
+                return jsonify(shipment), 200
+            else:
+                return jsonify({"error": "Shipment not found"}), 404
+        except Exception as e:
+            print(f"Error fetching shipment: {e}")
+            return jsonify({"error": "Failed to fetch shipment"}), 500
+    
+    # GET all shipments
+    if request.method == "GET":
+        try:
+            all_shipments = get_all_shipments()
+            for shipment in all_shipments:
+                if shipment.get('created_at'):
+                    shipment['created_at'] = shipment['created_at'].isoformat()
+            return jsonify(all_shipments), 200
+        except Exception as e:
+            print(f"Error in API: {e}")
+            return jsonify({"error": "Failed to fetch shipments"}), 500
+    
+    # POST - create new shipment
+    if request.method == "POST":
+        if "user" not in session:
+            return jsonify({"error": "Unauthorized"}), 401
+        
+        data = request.get_json(silent=True) or {}
+        status = data.get("status", "").strip()
+        origin = data.get("origin", "").strip()
+        destination = data.get("destination", "").strip()
+        
+        # Validate
+        errors = validate_shipment_data(status, origin, destination)
+        if errors:
+            return jsonify({"error": ", ".join(errors)}), 400
+        
+        try:
+            tracking_number = generate_tracking_number()
+            shipment_id = create_shipment(tracking_number, status, origin, destination)
+            
+            # Log event
+            log_event(
+                event_type="shipment_created",
+                tracking_number=tracking_number,
+                status=status,
+                user_id=session.get("user"),
+                metadata={"origin": origin, "destination": destination}
+            )
+            
+            return jsonify({"id": shipment_id, "tracking_number": tracking_number, "status": "created"}), 201
+        except Exception as e:
+            print(f"Error creating shipment: {e}")
+            return jsonify({"error": "Failed to create shipment"}), 500
+    
+    # PUT - update shipment
+    if request.method == "PUT" and shipment_id:
+        if "user" not in session:
+            return jsonify({"error": "Unauthorized"}), 401
+        
+        data = request.get_json(silent=True) or {}
+        status = data.get("status", "").strip()
+        origin = data.get("origin", "").strip()
+        destination = data.get("destination", "").strip()
+        
+        # Validate
+        errors = validate_shipment_data(status, origin, destination)
+        if errors:
+            return jsonify({"error": ", ".join(errors)}), 400
+        
+        try:
+            success = update_shipment(shipment_id, status, origin, destination)
+            if success:
+                # Get shipment for event logging
+                shipment = get_shipment_by_id(shipment_id)
+                if shipment:
+                    log_event(
+                        event_type="shipment_updated",
+                        tracking_number=shipment["tracking_number"],
+                        status=status,
+                        user_id=session.get("user"),
+                        metadata={"origin": origin, "destination": destination}
+                    )
+                return jsonify({"id": shipment_id, "status": "updated"}), 200
+            else:
+                return jsonify({"error": "Shipment not found"}), 404
+        except Exception as e:
+            print(f"Error updating shipment: {e}")
+            return jsonify({"error": "Failed to update shipment"}), 500
+    
+    # DELETE shipment
+    if request.method == "DELETE" and shipment_id:
+        if "user" not in session:
+            return jsonify({"error": "Unauthorized"}), 401
+        
+        try:
+            # Get shipment before deleting
+            shipment = get_shipment_by_id(shipment_id)
+            
+            success = delete_shipment(shipment_id)
+            if success:
+                if shipment:
+                    log_event(
+                        event_type="shipment_deleted",
+                        tracking_number=shipment["tracking_number"],
+                        status=shipment["status"],
+                        user_id=session.get("user"),
+                        metadata={"origin": shipment["origin"], "destination": shipment["destination"]}
+                    )
+                return jsonify({"id": shipment_id, "status": "deleted"}), 200
+            else:
+                return jsonify({"error": "Shipment not found"}), 404
+        except Exception as e:
+            print(f"Error deleting shipment: {e}")
+            return jsonify({"error": "Failed to delete shipment"}), 500
+
+
+@app.route("/shipments/<int:shipment_id>/update", methods=["POST"])
+def update_shipment_route(shipment_id):
+    # Require login
+    if "user" not in session:
+        return redirect("/login")
+    
+    status = request.form.get("status", "").strip()
+    origin = request.form.get("origin", "").strip()
+    destination = request.form.get("destination", "").strip()
+    
+    # Validate input
+    errors = validate_shipment_data(status, origin, destination)
+    if errors:
+        return f"Validation errors: {', '.join(errors)}", 400
+    
     try:
-        all_shipments = get_all_shipments()
-        # Convert datetime objects to strings for JSON serialization
-        for shipment in all_shipments:
-            if shipment.get('created_at'):
-                shipment['created_at'] = shipment['created_at'].isoformat()
-        return jsonify(all_shipments), 200
+        success = update_shipment(shipment_id, status, origin, destination)
+        if success:
+            # Get shipment details for event logging
+            shipment = get_shipment_by_id(shipment_id)
+            if shipment:
+                # Log event to MongoDB
+                log_event(
+                    event_type="shipment_updated",
+                    tracking_number=shipment["tracking_number"],
+                    status=status,
+                    user_id=session.get("user"),
+                    metadata={"origin": origin, "destination": destination}
+                )
+            return redirect("/shipments")
+        else:
+            return "Shipment not found", 404
     except Exception as e:
-        print(f"Error in API: {e}")
-        return jsonify({"error": "Failed to fetch shipments"}), 500
+        print(f"Error updating shipment: {e}")
+        return "Error updating shipment", 500
+
+
+@app.route("/shipments/<int:shipment_id>/delete", methods=["POST"])
+def delete_shipment_route(shipment_id):
+    # Require login
+    if "user" not in session:
+        return redirect("/login")
+    
+    try:
+        # Get shipment details before deleting for event logging
+        shipment = get_shipment_by_id(shipment_id)
+        
+        success = delete_shipment(shipment_id)
+        if success:
+            # Log event to MongoDB
+            if shipment:
+                log_event(
+                    event_type="shipment_deleted",
+                    tracking_number=shipment["tracking_number"],
+                    status=shipment["status"],
+                    user_id=session.get("user"),
+                    metadata={"origin": shipment["origin"], "destination": shipment["destination"]}
+                )
+            return redirect("/shipments")
+        else:
+            return "Shipment not found", 404
+    except Exception as e:
+        print(f"Error deleting shipment: {e}")
+        return "Error deleting shipment", 500
 
 
 @app.route("/events")
