@@ -411,5 +411,36 @@ def geocode():
     return render_template("geocode.html", result=result, error=error)
 
 
+@app.route("/distance", methods=["GET", "POST"])
+def distance():
+    # Require login
+    if "user" not in session:
+        return redirect("/login")
+    
+    result = None
+    error = None
+    
+    if request.method == "POST":
+        origin = request.form.get("origin", "").strip()
+        destination = request.form.get("destination", "").strip()
+        
+        if not origin or not destination:
+            error = "Both origin and destination are required"
+        else:
+            try:
+                # Call the Cloud Function
+                cloud_function_url = "https://us-central1-sd-logistics-486104.cloudfunctions.net/distance_eta"
+                response = requests.get(cloud_function_url, params={"origin": origin, "destination": destination})
+                
+                if response.status_code == 200:
+                    result = response.json()
+                else:
+                    error = f"Error: {response.status_code} - {response.text}"
+            except Exception as e:
+                error = f"Failed to call Cloud Function: {str(e)}"
+    
+    return render_template("distance.html", result=result, error=error)
+
+
 if __name__ == "__main__":
     app.run(debug=True)
