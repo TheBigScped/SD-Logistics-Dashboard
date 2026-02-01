@@ -5,3 +5,4 @@ pymongo==4.6.1
 python-dotenv==1.0.0
 requests==2.31.0
 Flask-Limiter==3.5.0
+certifi==2024.8.30

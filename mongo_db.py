@@ -1,4 +1,5 @@
 import os
+import certifi
 from datetime import datetime
 from pymongo import MongoClient
 from bson import ObjectId
@@ -9,12 +10,11 @@ def get_mongo_connection():
     if not mongo_uri:
         raise RuntimeError("MONGODB_URI environment variable is not set")
     
-    # Configure SSL/TLS settings for App Engine compatibility
+    # Use proper SSL/TLS with certificate validation
     client = MongoClient(
         mongo_uri,
         tls=True,
-        tlsAllowInvalidCertificates=True,  # Allow self-signed certs for App Engine
-        connect=False,  # Lazy connection
+        tlsCAFile=certifi.where(),  # Proper certificate validation
         serverSelectionTimeoutMS=30000,
         socketTimeoutMS=30000
     )
