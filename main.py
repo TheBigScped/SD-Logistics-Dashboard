@@ -5,6 +5,8 @@ from flask import Flask, render_template, request, redirect, session, jsonify
 import requests
 import firebase_admin
 from firebase_admin import credentials, auth
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from db import get_all_shipments, create_shipment, generate_tracking_number, update_shipment, delete_shipment, get_shipment_by_id
 from mongo_db import log_event, get_all_events, create_event
 
@@ -19,16 +21,48 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 cred = credentials.Certificate("firebase-key.json")
 firebase_admin.initialize_app(cred)
 
+# Configure rate limiting
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["100 per day", "30 per hour"],
+    storage_uri="memory://"
+)
+
 
 def validate_shipment_data(status, origin, destination):
-    """Validate shipment data"""
+    """Validate shipment data with enhanced security checks"""
     errors = []
+    
+    # Check required fields
     if not status or not status.strip():
         errors.append("Status is required")
     if not origin or not origin.strip():
         errors.append("Origin is required")
     if not destination or not destination.strip():
         errors.append("Destination is required")
+    
+    # Length validation
+    if origin and len(origin) > 100:
+        errors.append("Origin must be less than 100 characters")
+    if destination and len(destination) > 100:
+        errors.append("Destination must be less than 100 characters")
+    
+    # Check for dangerous characters (XSS/injection prevention)
+    dangerous_chars = ['<', '>', ';', '"', "'", '\\', '`']
+    for char in dangerous_chars:
+        if origin and char in origin:
+            errors.append(f"Origin contains invalid character: {char}")
+            break
+        if destination and char in destination:
+            errors.append(f"Destination contains invalid character: {char}")
+            break
+    
+    # Validate status is from allowed values
+    allowed_statuses = ['Pending', 'In Transit', 'Delivered']
+    if status and status not in allowed_statuses:
+        errors.append(f"Status must be one of: {', '.join(allowed_statuses)}")
+    
     return errors
 
 
@@ -143,6 +177,7 @@ def shipments():
 
 @app.route("/api/shipments", methods=["GET", "POST"])
 @app.route("/api/shipments/<int:shipment_id>", methods=["GET", "PUT", "DELETE"])
+@limiter.limit("30 per hour")
 def api_shipments_full(shipment_id=None):
     """REST API endpoint for shipments with full CRUD"""
     
@@ -348,6 +383,7 @@ def events():
 
 
 @app.route("/api/events", methods=["GET", "POST"])
+@limiter.limit("100 per hour")
 def api_events():
     """REST API endpoint for events"""
     if request.method == "GET":
@@ -382,6 +418,7 @@ def api_events():
 
 
 @app.route("/geocode", methods=["GET", "POST"])
+@limiter.limit("50 per hour")
 def geocode():
     # Require login
     if "user" not in session:
@@ -395,6 +432,10 @@ def geocode():
         
         if not city:
             error = "City name is required"
+        elif len(city) > 100:
+            error = "City name must be less than 100 characters"
+        elif any(char in city for char in ['<', '>', ';', '"', "'", '\\', '`']):
+            error = "City name contains invalid characters"
         else:
             try:
                 # Call the Cloud Function
@@ -412,6 +453,7 @@ def geocode():
 
 
 @app.route("/distance", methods=["GET", "POST"])
+@limiter.limit("50 per hour")
 def distance():
     # Require login
     if "user" not in session:
@@ -426,6 +468,14 @@ def distance():
         
         if not origin or not destination:
             error = "Both origin and destination are required"
+        elif len(origin) > 100:
+            error = "Origin must be less than 100 characters"
+        elif len(destination) > 100:
+            error = "Destination must be less than 100 characters"
+        elif any(char in origin for char in ['<', '>', ';', '"', "'", '\\', '`']):
+            error = "Origin contains invalid characters"
+        elif any(char in destination for char in ['<', '>', ';', '"', "'", '\\', '`']):
+            error = "Destination contains invalid characters"
         else:
             try:
                 # Call the Cloud Function
