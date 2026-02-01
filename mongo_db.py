@@ -9,7 +9,15 @@ def get_mongo_connection():
     if not mongo_uri:
         raise RuntimeError("MONGODB_URI environment variable is not set")
     
-    client = MongoClient(mongo_uri)
+    # Configure SSL/TLS settings for App Engine compatibility
+    client = MongoClient(
+        mongo_uri,
+        tls=True,
+        tlsAllowInvalidCertificates=True,  # Allow self-signed certs for App Engine
+        connect=False,  # Lazy connection
+        serverSelectionTimeoutMS=30000,
+        socketTimeoutMS=30000
+    )
     db = client.get_database()  # Gets the database specified in the URI
     return db
 
