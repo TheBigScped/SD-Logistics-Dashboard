@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask, render_template, request, redirect, session, jsonify
+import requests
 import firebase_admin
 from firebase_admin import credentials, auth
 from db import get_all_shipments, create_shipment, generate_tracking_number, update_shipment, delete_shipment, get_shipment_by_id
@@ -378,6 +379,36 @@ def api_events():
         except Exception as e:
             print(f"Error creating event: {e}")
             return jsonify({"error": "Failed to create event"}), 500
+
+
+@app.route("/geocode", methods=["GET", "POST"])
+def geocode():
+    # Require login
+    if "user" not in session:
+        return redirect("/login")
+    
+    result = None
+    error = None
+    
+    if request.method == "POST":
+        city = request.form.get("city", "").strip()
+        
+        if not city:
+            error = "City name is required"
+        else:
+            try:
+                # Call the Cloud Function
+                cloud_function_url = "https://us-central1-sd-logistics-486104.cloudfunctions.net/geocode_city"
+                response = requests.get(cloud_function_url, params={"city": city})
+                
+                if response.status_code == 200:
+                    result = response.json()
+                else:
+                    error = f"Error: {response.status_code}"
+            except Exception as e:
+                error = f"Failed to call Cloud Function: {str(e)}"
+    
+    return render_template("geocode.html", result=result, error=error)
 
 
 if __name__ == "__main__":
