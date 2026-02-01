@@ -9,6 +9,21 @@
     <span class="pill">System status: OK</span>
 </div>
 
+<div class="grid grid-3" style="margin-bottom: 24px;">
+    <div class="card">
+        <p class="muted">Total Shipments</p>
+        <div class="kpi-value">{{ total_shipments }}</div>
+    </div>
+    <div class="card">
+        <p class="muted">In Transit</p>
+        <div class="kpi-value">{{ in_transit }}</div>
+    </div>
+    <div class="card">
+        <p class="muted">Delivered</p>
+        <div class="kpi-value">{{ delivered }}</div>
+    </div>
+</div>
+
 <div class="grid grid-3">
     <div class="card">
         <h3>Shipments</h3>
