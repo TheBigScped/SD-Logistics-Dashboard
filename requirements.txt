@@ -1,8 +1,7 @@
 Flask==3.0.0
-firebase-admin
-Flask==3.0.0
-firebase-admin
-psycopg2-binary
-pymongo
-python-dotenv
-
+firebase-admin==6.4.0
+psycopg2-binary==2.9.9
+pymongo==4.6.1
+python-dotenv==1.0.0
+requests==2.31.0
+Flask-Limiter==3.5.0
