@@ -1,5 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Status</h2>
-<p>System status: OK</p>
+<div class="page-header">
+    <div>
+        <h2 class="page-title">System Status</h2>
+        <p>Current health for core logistics services.</p>
+    </div>
+    <span class="pill">All systems operational</span>
+</div>
+
+<div class="card" style="max-width: 520px;">
+    <h3>Platform Health</h3>
+    <p class="muted">Live status for application services.</p>
+    <div style="display: flex; align-items: center; gap: 12px; margin-top: 16px;">
+        <span class="badge status-delivered">OK</span>
+        <span>API, database, and background services are responding normally.</span>
+    </div>
+</div>
 {% endblock %}

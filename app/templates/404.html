@@ -1,5 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Page not found</h2>
-<p>The page you requested does not exist.</p>
+<div class="page-header">
+    <div>
+        <h2 class="page-title">Page not found</h2>
+        <p>The page you requested does not exist or has moved.</p>
+    </div>
+</div>
+
+<div class="card" style="max-width: 520px;">
+    <h3>Need help?</h3>
+    <p>Return to the dashboard or review shipment activity.</p>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px;">
+        <a class="btn btn-primary" href="/">Go to dashboard</a>
+        <a class="btn btn-outline" href="/shipments">View shipments</a>
+    </div>
+</div>
 {% endblock %}

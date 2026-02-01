@@ -1,91 +1,101 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Shipments Management</h2>
+<div class="page-header">
+    <div>
+        <h2 class="page-title">Shipments Management</h2>
+        <p>Plan, register, and update shipments with real-time ETA tooling.</p>
+    </div>
+    <a class="btn btn-outline" href="/events">View events</a>
+</div>
 
-<!-- Add New Shipment Form -->
-<div style="background: #f5f5f5; padding: 20px; margin-bottom: 30px; border-radius: 5px;">
+<div class="card" style="margin-bottom: 24px;">
     <h3>Add New Shipment</h3>
     <form method="POST" action="/shipments" id="shipment-form">
-        <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Status:</label>
-            <select name="status" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 3px;">
-                <option value="Pending">Pending</option>
-                <option value="In Transit">In Transit</option>
-                <option value="Delivered">Delivered</option>
-            </select>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="status">Status</label>
+                <select name="status" id="status" required>
+                    <option value="Pending">Pending</option>
+                    <option value="In Transit">In Transit</option>
+                    <option value="Delivered">Delivered</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="origin-input">Origin</label>
+                <input type="text" name="origin" id="origin-input" placeholder="e.g., London" required>
+            </div>
+            <div class="form-group">
+                <label for="destination-input">Destination</label>
+                <input type="text" name="destination" id="destination-input" placeholder="e.g., Paris" required>
+            </div>
         </div>
-        <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Origin:</label>
-            <input type="text" name="origin" id="origin-input" placeholder="e.g., London" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 3px;">
+
+        <div style="margin-top: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+            <button type="button" id="calculate-distance-btn" class="btn btn-secondary">
+                Calculate Distance and ETA
+            </button>
+            <button type="submit" class="btn btn-primary">Add Shipment</button>
         </div>
-        <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Destination:</label>
-            <input type="text" name="destination" id="destination-input" placeholder="e.g., Paris" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 3px;">
+
+        <div id="distance-result" class="alert alert-info" style="display: none; margin-top: 16px;">
+            <strong>Route information</strong>
+            <div id="distance-info" style="margin-top: 8px;"></div>
         </div>
-        
-        <!-- Calculate Distance Button -->
-        <button type="button" id="calculate-distance-btn" style="background: #2196F3; color: white; padding: 10px 20px; border: none; cursor: pointer; border-radius: 3px; margin-bottom: 15px;">
-            Calculate Distance & ETA
-        </button>
-        
-        <!-- Distance Result Display -->
-        <div id="distance-result" style="display: none; background: #e3f2fd; border-left: 4px solid #2196F3; padding: 15px; margin-bottom: 15px; border-radius: 3px;">
-            <strong>Route Information:</strong>
-            <div id="distance-info" style="margin-top: 10px;"></div>
-        </div>
-        
-        <!-- Distance Error Display -->
-        <div id="distance-error" style="display: none; background: #ffebee; border-left: 4px solid #f44336; padding: 15px; margin-bottom: 15px; border-radius: 3px; color: #c62828;">
+
+        <div id="distance-error" class="alert alert-danger" style="display: none; margin-top: 16px;">
             <div id="distance-error-msg"></div>
         </div>
-        
-        <button type="submit" style="background: #4CAF50; color: white; padding: 10px 20px; border: none; cursor: pointer; border-radius: 3px;">Add Shipment</button>
     </form>
 </div>
 
-<!-- All Shipments Table -->
-<h3>All Shipments</h3>
-<table border="1" cellpadding="10" style="width: 100%; border-collapse: collapse;">
-    <thead>
-        <tr style="background: #f0f0f0;">
-            <th>ID</th>
-            <th>Tracking Number</th>
-            <th>Status</th>
-            <th>Origin</th>
-            <th>Destination</th>
-            <th>Created At</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for shipment in shipments %}
-        <tr id="row-{{ shipment.id }}">
-            <td>{{ shipment.id }}</td>
-            <td>{{ shipment.tracking_number }}</td>
-            <td>
-                <span id="status-text-{{ shipment.id }}">{{ shipment.status }}</span>
-                <select id="status-select-{{ shipment.id }}" name="status" style="display: none; padding: 5px;">
-                    <option value="Pending" {% if shipment.status == 'Pending' %}selected{% endif %}>Pending</option>
-                    <option value="In Transit" {% if shipment.status == 'In Transit' %}selected{% endif %}>In Transit</option>
-                    <option value="Delivered" {% if shipment.status == 'Delivered' %}selected{% endif %}>Delivered</option>
-                </select>
-            </td>
-            <td>{{ shipment.origin }}</td>
-            <td>{{ shipment.destination }}</td>
-            <td>{{ shipment.created_at }}</td>
-            <td>
-                <button onclick="enableEdit({{ shipment.id }})" id="edit-btn-{{ shipment.id }}" style="background: #FF9800; color: white; padding: 5px 10px; border: none; cursor: pointer; border-radius: 3px;">Edit</button>
-                <button onclick="saveShipment({{ shipment.id }}, '{{ shipment.tracking_number }}', '{{ shipment.origin }}', '{{ shipment.destination }}')" id="save-btn-{{ shipment.id }}" style="display: none; background: #4CAF50; color: white; padding: 5px 10px; border: none; cursor: pointer; border-radius: 3px;">Save</button>
-                <button onclick="cancelEdit({{ shipment.id }}, '{{ shipment.status }}')" id="cancel-btn-{{ shipment.id }}" style="display: none; background: #9E9E9E; color: white; padding: 5px 10px; border: none; cursor: pointer; border-radius: 3px;">Cancel</button>
-                
-                <form method="POST" action="/shipments/{{ shipment.id }}/delete" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this shipment?');">
-                    <button type="submit" style="background: #f44336; color: white; padding: 5px 10px; border: none; cursor: pointer; border-radius: 3px;">Delete</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="card table-card">
+    <div class="page-header" style="margin-bottom: 16px;">
+        <h3>All Shipments</h3>
+        <span class="pill">Live tracking</span>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Tracking Number</th>
+                <th>Status</th>
+                <th>Origin</th>
+                <th>Destination</th>
+                <th>Created At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for shipment in shipments %}
+            <tr id="row-{{ shipment.id }}">
+                <td>{{ shipment.id }}</td>
+                <td>{{ shipment.tracking_number }}</td>
+                <td>
+                    <span id="status-text-{{ shipment.id }}" class="badge status-{{ shipment.status|lower|replace(' ', '-') }}">{{ shipment.status }}</span>
+                    <select id="status-select-{{ shipment.id }}" name="status" class="input-compact" style="display: none;">
+                        <option value="Pending" {% if shipment.status == 'Pending' %}selected{% endif %}>Pending</option>
+                        <option value="In Transit" {% if shipment.status == 'In Transit' %}selected{% endif %}>In Transit</option>
+                        <option value="Delivered" {% if shipment.status == 'Delivered' %}selected{% endif %}>Delivered</option>
+                    </select>
+                </td>
+                <td>{{ shipment.origin }}</td>
+                <td>{{ shipment.destination }}</td>
+                <td>{{ shipment.created_at }}</td>
+                <td>
+                    <div class="table-actions">
+                        <button onclick="enableEdit({{ shipment.id }})" id="edit-btn-{{ shipment.id }}" class="btn btn-warning btn-sm">Edit</button>
+                        <button onclick="saveShipment({{ shipment.id }}, '{{ shipment.tracking_number }}', '{{ shipment.origin }}', '{{ shipment.destination }}')" id="save-btn-{{ shipment.id }}" class="btn btn-success btn-sm" style="display: none;">Save</button>
+                        <button onclick="cancelEdit({{ shipment.id }}, '{{ shipment.status }}')" id="cancel-btn-{{ shipment.id }}" class="btn btn-outline btn-sm" style="display: none;">Cancel</button>
+                        <form method="POST" action="/shipments/{{ shipment.id }}/delete" onsubmit="return confirm('Are you sure you want to delete this shipment?');">
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 
 <script>
 // Clear distance result when origin or destination changes
@@ -103,32 +113,32 @@ document.getElementById('destination-input').addEventListener('input', function(
 document.getElementById('calculate-distance-btn').addEventListener('click', async function() {
     const origin = document.getElementById('origin-input').value.trim();
     const destination = document.getElementById('destination-input').value.trim();
-    
+
     // Hide previous results
     document.getElementById('distance-result').style.display = 'none';
     document.getElementById('distance-error').style.display = 'none';
-    
+
     // Validate inputs
     if (!origin || !destination) {
         document.getElementById('distance-error-msg').textContent = 'Please enter both origin and destination.';
         document.getElementById('distance-error').style.display = 'block';
         return;
     }
-    
+
     // Show loading state
     const btn = document.getElementById('calculate-distance-btn');
     const originalText = btn.textContent;
     btn.textContent = 'Calculating...';
     btn.disabled = true;
-    
+
     try {
         // Call the Cloud Function
         const cloudFunctionUrl = 'https://us-central1-sd-logistics-486104.cloudfunctions.net/distance_eta';
         const response = await fetch(`${cloudFunctionUrl}?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`);
-        
+
         if (response.ok) {
             const data = await response.json();
-            
+
             // Display result
             document.getElementById('distance-info').innerHTML = `
                 <div><strong>Distance:</strong> ${data.distance_km} km (${data.distance_text})</div>
@@ -155,45 +165,45 @@ function enableEdit(id) {
     document.getElementById('status-text-' + id).style.display = 'none';
     document.getElementById('status-select-' + id).style.display = 'inline';
     document.getElementById('edit-btn-' + id).style.display = 'none';
-    document.getElementById('save-btn-' + id).style.display = 'inline';
-    document.getElementById('cancel-btn-' + id).style.display = 'inline';
+    document.getElementById('save-btn-' + id).style.display = 'inline-flex';
+    document.getElementById('cancel-btn-' + id).style.display = 'inline-flex';
 }
 
 function cancelEdit(id, originalStatus) {
-    document.getElementById('status-text-' + id).style.display = 'inline';
+    document.getElementById('status-text-' + id).style.display = 'inline-flex';
     document.getElementById('status-select-' + id).style.display = 'none';
     document.getElementById('status-select-' + id).value = originalStatus;
-    document.getElementById('edit-btn-' + id).style.display = 'inline';
+    document.getElementById('edit-btn-' + id).style.display = 'inline-flex';
     document.getElementById('save-btn-' + id).style.display = 'none';
     document.getElementById('cancel-btn-' + id).style.display = 'none';
 }
 
 function saveShipment(id, trackingNumber, origin, destination) {
     const newStatus = document.getElementById('status-select-' + id).value;
-    
+
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = '/shipments/' + id + '/update';
-    
+
     const statusInput = document.createElement('input');
     statusInput.type = 'hidden';
     statusInput.name = 'status';
     statusInput.value = newStatus;
-    
+
     const originInput = document.createElement('input');
     originInput.type = 'hidden';
     originInput.name = 'origin';
     originInput.value = origin;
-    
+
     const destInput = document.createElement('input');
     destInput.type = 'hidden';
     destInput.name = 'destination';
     destInput.value = destination;
-    
+
     form.appendChild(statusInput);
     form.appendChild(originInput);
     form.appendChild(destInput);
-    
+
     document.body.appendChild(form);
     form.submit();
 }

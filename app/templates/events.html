@@ -1,42 +1,47 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Events Log</h2>
+<div class="page-header">
+    <div>
+        <h2 class="page-title">Events Log</h2>
+        <p>Showing the most recent 50 events recorded in MongoDB.</p>
+    </div>
+    <span class="pill">Audit trail</span>
+</div>
 
-<p>Showing the most recent 50 events from MongoDB.</p>
-
-<!-- Events Table -->
-<table style="width: 100%; border-collapse: collapse;">
-    <thead>
-        <tr style="background: #333; color: white;">
-            <th style="padding: 10px; text-align: left;">Timestamp</th>
-            <th style="padding: 10px; text-align: left;">Type</th>
-            <th style="padding: 10px; text-align: left;">Tracking Number</th>
-            <th style="padding: 10px; text-align: left;">Status</th>
-            <th style="padding: 10px; text-align: left;">User ID</th>
-            <th style="padding: 10px; text-align: left;">Metadata</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for event in events %}
-        <tr style="border-bottom: 1px solid #ddd;">
-            <td style="padding: 10px;">{{ event.timestamp }}</td>
-            <td style="padding: 10px;">{{ event.type }}</td>
-            <td style="padding: 10px;">{{ event.tracking_number or 'N/A' }}</td>
-            <td style="padding: 10px;">{{ event.status or 'N/A' }}</td>
-            <td style="padding: 10px;">{{ event.user_id or 'N/A' }}</td>
-            <td style="padding: 10px; font-size: 0.9em;">
-                {% if event.metadata and event.metadata|length > 0 %}
-                    {{ event.metadata }}
-                {% else %}
-                    -
-                {% endif %}
-            </td>
-        </tr>
-        {% else %}
-        <tr>
-            <td colspan="6" style="padding: 20px; text-align: center;">No events found</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="card table-card">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Type</th>
+                <th>Tracking Number</th>
+                <th>Status</th>
+                <th>User ID</th>
+                <th>Metadata</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in events %}
+            <tr>
+                <td>{{ event.timestamp }}</td>
+                <td>{{ event.type }}</td>
+                <td>{{ event.tracking_number or 'N/A' }}</td>
+                <td>{{ event.status or 'N/A' }}</td>
+                <td>{{ event.user_id or 'N/A' }}</td>
+                <td>
+                    {% if event.metadata and event.metadata|length > 0 %}
+                        <code>{{ event.metadata }}</code>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 20px;">No events found</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}

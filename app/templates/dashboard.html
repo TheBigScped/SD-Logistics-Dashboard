@@ -1,5 +1,29 @@
 {% extends "base.html" %}
 
 {% block content %}
-<p>Welcome to the Smart Logistics Dashboard.</p>
+<div class="page-header">
+    <div>
+        <h2 class="page-title">Operations Dashboard</h2>
+        <p>Monitor shipments, events, and routing tools from one workspace.</p>
+    </div>
+    <span class="pill">System status: OK</span>
+</div>
+
+<div class="grid grid-3">
+    <div class="card">
+        <h3>Shipments</h3>
+        <p>Create, update, and track active deliveries across the network.</p>
+        <a class="btn btn-primary" href="/shipments">Manage shipments</a>
+    </div>
+    <div class="card">
+        <h3>Events Log</h3>
+        <p>Review the latest operational events and activity history.</p>
+        <a class="btn btn-outline" href="/events">View events</a>
+    </div>
+    <div class="card">
+        <h3>Routing Tools</h3>
+        <p>Geocode locations and estimate distance and ETA instantly.</p>
+        <a class="btn btn-secondary" href="/distance">Open distance tool</a>
+    </div>
+</div>
 {% endblock %}
