@@ -192,6 +192,10 @@ def api_shipments_full(shipment_id=None):
     
     # GET single shipment
     if request.method == "GET" and shipment_id:
+        # Require authentication for API access
+        if "user" not in session:
+            return jsonify({"error": "Unauthorized"}), 401
+        
         try:
             shipment = get_shipment_by_id(shipment_id)
             if shipment:
@@ -206,6 +210,10 @@ def api_shipments_full(shipment_id=None):
     
     # GET all shipments
     if request.method == "GET":
+        # Require authentication for API access
+        if "user" not in session:
+            return jsonify({"error": "Unauthorized"}), 401
+        
         try:
             all_shipments = get_all_shipments()
             for shipment in all_shipments:
@@ -396,6 +404,10 @@ def events():
 def api_events():
     """REST API endpoint for events"""
     if request.method == "GET":
+        # Require authentication for API access
+        if "user" not in session:
+            return jsonify({"error": "Unauthorized"}), 401
+        
         try:
             all_events = get_all_events(limit=50)
             return jsonify(all_events), 200
