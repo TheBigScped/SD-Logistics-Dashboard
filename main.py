@@ -25,7 +25,7 @@ firebase_admin.initialize_app(cred)
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=["100 per day", "30 per hour"],
+    default_limits=["200 per day", "50 per hour"],
     storage_uri="memory://"
 )
 
@@ -70,23 +70,7 @@ def validate_shipment_data(status, origin, destination):
 def dashboard():
     if "user" not in session:
         return redirect("/login")
-    try:
-        shipments = get_all_shipments()
-        total_shipments = len(shipments)
-        in_transit = sum(1 for shipment in shipments if shipment.get("status") == "In Transit")
-        delivered = sum(1 for shipment in shipments if shipment.get("status") == "Delivered")
-    except Exception as e:
-        print(f"Error loading dashboard KPIs: {e}")
-        total_shipments = 0
-        in_transit = 0
-        delivered = 0
-
-    return render_template(
-        "dashboard.html",
-        total_shipments=total_shipments,
-        in_transit=in_transit,
-        delivered=delivered
-    )
+    return render_template("dashboard.html")
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -104,6 +88,15 @@ def login():
 
         try:
             decoded = auth.verify_id_token(token, check_revoked=False)
+            
+            # Whitelist specific emails for authorization
+            ALLOWED_EMAILS = ['oly123abc@gmail.com', 'admin@logistics.com']
+            user_email = decoded.get('email')
+            
+            if user_email not in ALLOWED_EMAILS:
+                print(f"Unauthorized email attempted login: {user_email}")
+                return {"error": "Unauthorized account. Contact administrator."}, 403
+            
             session["user"] = decoded["uid"]
             session.modified = True  # Explicitly mark session as modified
             print("Session set to:", session["user"])
@@ -193,7 +186,7 @@ def shipments():
 
 @app.route("/api/shipments", methods=["GET", "POST"])
 @app.route("/api/shipments/<int:shipment_id>", methods=["GET", "PUT", "DELETE"])
-@limiter.limit("30 per hour")
+@limiter.limit("100 per hour")
 def api_shipments_full(shipment_id=None):
     """REST API endpoint for shipments with full CRUD"""
     
@@ -509,7 +502,4 @@ def distance():
 
 
 if __name__ == "__main__":
-    import os
-    port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port, debug=False)
-    
+    app.run(debug=True)
