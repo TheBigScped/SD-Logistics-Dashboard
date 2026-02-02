@@ -8,7 +8,7 @@ from firebase_admin import credentials, auth
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from db import get_all_shipments, create_shipment, generate_tracking_number, update_shipment, delete_shipment, get_shipment_by_id
-from mongo_db import log_event, get_all_events, create_event
+from mongo_db import log_event, get_all_events, create_event, update_event, delete_event
 
 app = Flask(__name__, template_folder="app/templates")
 app.secret_key = "dev-secret"
@@ -436,6 +436,42 @@ def api_events():
         except Exception as e:
             print(f"Error creating event: {e}")
             return jsonify({"error": "Failed to create event"}), 500
+
+
+@app.route("/api/events/<event_id>", methods=["PUT", "DELETE"])
+@limiter.limit("30 per hour")
+def api_event_single(event_id):
+    """Update or delete a single event"""
+    
+    # Require authentication
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # UPDATE event
+    if request.method == "PUT":
+        data = request.get_json(silent=True) or {}
+        
+        try:
+            success = update_event(event_id, **data)
+            if success:
+                return jsonify({"id": event_id, "status": "updated"}), 200
+            else:
+                return jsonify({"error": "Event not found"}), 404
+        except Exception as e:
+            print(f"Error updating event: {e}")
+            return jsonify({"error": "Failed to update event"}), 500
+    
+    # DELETE event
+    if request.method == "DELETE":
+        try:
+            success = delete_event(event_id)
+            if success:
+                return jsonify({"id": event_id, "status": "deleted"}), 200
+            else:
+                return jsonify({"error": "Event not found"}), 404
+        except Exception as e:
+            print(f"Error deleting event: {e}")
+            return jsonify({"error": "Failed to delete event"}), 500
 
 
 @app.route("/geocode", methods=["GET", "POST"])

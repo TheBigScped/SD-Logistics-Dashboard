@@ -68,3 +68,40 @@ def create_event(event_type, timestamp=None, **kwargs):
     
     result = events_collection.insert_one(event)
     return str(result.inserted_id)
+
+def update_event(event_id, **updates):
+    """Update an event in MongoDB by event_id"""
+    db = get_mongo_connection()
+    events_collection = db['events']
+    
+    try:
+        # Convert string ID to ObjectId
+        result = events_collection.update_one(
+            {'_id': ObjectId(event_id)},
+            {'$set': updates}
+        )
+        
+        if result.modified_count > 0:
+            return True
+        else:
+            return False  # Event not found or no changes
+    except Exception as e:
+        print(f"Error updating event: {e}")
+        return False
+
+def delete_event(event_id):
+    """Delete an event from MongoDB by event_id"""
+    db = get_mongo_connection()
+    events_collection = db['events']
+    
+    try:
+        # Convert string ID to ObjectId
+        result = events_collection.delete_one({'_id': ObjectId(event_id)})
+        
+        if result.deleted_count > 0:
+            return True
+        else:
+            return False  # Event not found
+    except Exception as e:
+        print(f"Error deleting event: {e}")
+        return False
