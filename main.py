@@ -70,7 +70,23 @@ def validate_shipment_data(status, origin, destination):
 def dashboard():
     if "user" not in session:
         return redirect("/login")
-    return render_template("dashboard.html")
+    try:
+        shipments = get_all_shipments()
+        total_shipments = len(shipments)
+        in_transit = sum(1 for shipment in shipments if shipment.get("status") == "In Transit")
+        delivered = sum(1 for shipment in shipments if shipment.get("status") == "Delivered")
+    except Exception as e:
+        print(f"Error loading dashboard KPIs: {e}")
+        total_shipments = 0
+        in_transit = 0
+        delivered = 0
+
+    return render_template(
+        "dashboard.html",
+        total_shipments=total_shipments,
+        in_transit=in_transit,
+        delivered=delivered
+    )
 
 
 @app.route("/login", methods=["GET", "POST"])
