@@ -1,30 +1,48 @@
-# SD-Logistics-Dashboard
+Smart Logistics Dashboard
+A cloud-based logistics management application for tracking shipments across SQL and NoSQL databases.
+Technology Stack
 
-# Smart Logistics Dashboard
+Backend: Python, Flask
+Databases: Neon PostgreSQL, MongoDB Atlas
+Cloud Platform: Google App Engine
+Authentication: Firebase (Google OAuth + Email/Password)
+Serverless: Google Cloud Functions (Geocoding, Distance Matrix)
 
-A cloud-based logistics management system built with Flask and Google App Engine.
+Deployment
+Live Application: https://sd-logistics-486104.nw.r.appspot.com
+Local Setup
 
-## Features (planned)
-- Shipment management
-- Driver assignment
-- Event tracking
-- Alerts and SLA monitoring
-- Firebase authentication
-- SQL + NoSQL databases
-- Cloud Functions and APIs
+Install dependencies:
 
-## How to run locally
-```bash
-pip install -r requirements.txt
-python main.py
+bashpip install -r requirements.txt
 
-## Deployment
-This application is designed to run on Google App Engine (Python runtime).
+Configure environment variables in .env:
 
-Deployment steps:
-1. Install Google Cloud SDK
-2. Authenticate with `gcloud auth login`
-3. Set project with `gcloud config set project <project-id>`
-4. Deploy using:
-   ```bash
-   gcloud app deploy
+MONGODB_URI=your_mongodb_connection_string
+GOOGLE_MAPS_API_KEY=your_api_key
+
+Add Firebase credentials (firebase-key.json)
+Run locally:
+
+bashpython main.py
+Testing
+Run unit tests:
+bashpytest test_app.py -v
+Features
+
+Full CRUD operations on shipments (PostgreSQL)
+Event logging with MongoDB
+Firebase authentication with email whitelist
+Google Cloud Functions integration
+RESTful API with rate limiting
+Input validation and security controls
+
+Project Structure
+
+main.py - Flask application and routes
+db.py - PostgreSQL database operations
+mongo_db.py - MongoDB operations
+test_app.py - Unit tests (20 tests)
+app/templates/ - HTML templates
+cloud_functions/ - Geocoding Cloud Function
+cloud_function_distance/ - Distance calculation Cloud Function
