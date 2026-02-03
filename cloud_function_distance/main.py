@@ -9,15 +9,12 @@ GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 @lru_cache(maxsize=100)
 def get_cached_distance(origin, destination):
-    """
-    Get distance and duration with caching to reduce API calls
-    """
+    """Get distance and duration with caching"""
     max_retries = 3
-    retry_delay = 1  # seconds
+    retry_delay = 1
     
     for attempt in range(max_retries):
         try:
-            # Make request with timeout
             response = requests.get(
                 'https://maps.googleapis.com/maps/api/distancematrix/json',
                 params={
@@ -25,28 +22,24 @@ def get_cached_distance(origin, destination):
                     'destinations': destination,
                     'key': GOOGLE_MAPS_API_KEY
                 },
-                timeout=5  # 5 second timeout
+                timeout=5
             )
             
             if response.status_code == 200:
                 data = response.json()
                 
-                # Check if request was successful
                 if data.get('status') == 'OK':
                     rows = data.get('rows', [])
                     if rows and rows[0].get('elements'):
                         element = rows[0]['elements'][0]
                         
-                        # Check if route was found
                         if element.get('status') == 'OK':
                             distance = element.get('distance', {})
                             duration = element.get('duration', {})
                             
-                            # Calculate additional metrics
                             distance_km = distance.get('value', 0) / 1000
                             duration_minutes = duration.get('value', 0) / 60
                             
-                            # Return structured, enhanced data
                             return {
                                 'success': True,
                                 'origin': origin,
@@ -75,7 +68,6 @@ def get_cached_distance(origin, destination):
                                 'error': f'Route calculation failed: {error_status}'
                             }
                 else:
-                    # API error status
                     error_msg = data.get('error_message', data.get('status', 'Unknown error'))
                     if attempt < max_retries - 1:
                         time.sleep(retry_delay * (2 ** attempt))
@@ -85,7 +77,6 @@ def get_cached_distance(origin, destination):
                         'error': f'Distance Matrix API error: {error_msg}'
                     }
             else:
-                # HTTP error
                 if attempt < max_retries - 1:
                     time.sleep(retry_delay * (2 ** attempt))
                     continue
@@ -124,10 +115,7 @@ def get_cached_distance(origin, destination):
 
 @functions_framework.http
 def distance_eta(request):
-    """
-    HTTP Cloud Function to calculate distance and ETA between two locations
-    Enhanced with validation, retry logic, caching, and error handling
-    """
+    """Calculate distance and ETA between two locations"""
     # Enable CORS
     if request.method == 'OPTIONS':
         headers = {
@@ -142,7 +130,6 @@ def distance_eta(request):
         'Access-Control-Allow-Origin': '*'
     }
 
-    # Input validation
     origin = request.args.get('origin')
     destination = request.args.get('destination')
     
@@ -156,11 +143,9 @@ def distance_eta(request):
             headers
         )
     
-    # Validate and clean inputs
     origin = origin.strip()
     destination = destination.strip()
     
-    # Length validation
     if len(origin) < 2 or len(destination) < 2:
         return (
             {
@@ -181,7 +166,6 @@ def distance_eta(request):
             headers
         )
     
-    # Check for invalid characters
     invalid_chars = ['<', '>', ';', '"', "'", '\\', '`']
     if any(char in origin for char in invalid_chars) or any(char in destination for char in invalid_chars):
         return (
@@ -190,10 +174,8 @@ def distance_eta(request):
             headers
         )
     
-    # Get distance data (with caching and retry logic)
     result = get_cached_distance(origin, destination)
     
-    # Mark if result was from cache
     cache_key = (origin, destination)
     if result.get('success') and cache_key in [
         tuple(k) if isinstance(k, tuple) else k 
@@ -201,7 +183,6 @@ def distance_eta(request):
     ]:
         result['cached'] = True
     
-    # Return appropriate status code
     status_code = 200 if result.get('success') else 400
     
     return (result, status_code, headers)

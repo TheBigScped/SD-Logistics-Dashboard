@@ -13,7 +13,6 @@ from mongo_db import log_event, get_all_events, create_event, update_event, dele
 app = Flask(__name__, template_folder="app/templates")
 app.secret_key = "dev-secret"
 
-# Fix for session persistence - use Lax but ensure session commits
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 
@@ -31,10 +30,9 @@ limiter = Limiter(
 
 
 def validate_shipment_data(status, origin, destination):
-    """Validate shipment data with enhanced security checks"""
+    """Validate shipment data"""
     errors = []
     
-    # Check required fields
     if not status or not status.strip():
         errors.append("Status is required")
     if not origin or not origin.strip():
@@ -42,13 +40,12 @@ def validate_shipment_data(status, origin, destination):
     if not destination or not destination.strip():
         errors.append("Destination is required")
     
-    # Length validation
     if origin and len(origin) > 100:
         errors.append("Origin must be less than 100 characters")
     if destination and len(destination) > 100:
         errors.append("Destination must be less than 100 characters")
     
-    # Check for dangerous characters (XSS/injection prevention)
+    # Check for dangerous characters
     dangerous_chars = ['<', '>', ';', '"', "'", '\\', '`']
     for char in dangerous_chars:
         if origin and char in origin:
@@ -58,7 +55,6 @@ def validate_shipment_data(status, origin, destination):
             errors.append(f"Destination contains invalid character: {char}")
             break
     
-    # Validate status is from allowed values
     allowed_statuses = ['Pending', 'In Transit', 'Delivered']
     if status and status not in allowed_statuses:
         errors.append(f"Status must be one of: {', '.join(allowed_statuses)}")
@@ -114,14 +110,13 @@ def login():
                 return {"error": "Unauthorized account. Contact administrator."}, 403
             
             session["user"] = decoded["uid"]
-            session.modified = True  # Explicitly mark session as modified
+            session.modified = True
             print("Session set to:", session["user"])
             return {"ok": True}, 200
         except Exception as e:
             print("Token verification failed:", e)
             return {"error": "Invalid token"}, 401
 
-    # If already logged in, skip login page
     if "user" in session:
         return redirect("/")
 
@@ -156,22 +151,18 @@ def page_not_found(e):
 
 @app.route("/shipments", methods=["GET", "POST"])
 def shipments():
-    # Require login
     if "user" not in session:
         return redirect("/login")
     
     if request.method == "POST":
-        # Handle form submission
         status = request.form.get("status", "").strip()
         origin = request.form.get("origin", "").strip()
         destination = request.form.get("destination", "").strip()
         
-        # Validate input
         errors = validate_shipment_data(status, origin, destination)
         if errors:
             return f"Validation errors: {', '.join(errors)}", 400
         
-        # Auto-generate tracking number
         tracking_number = generate_tracking_number()
         
         try:
@@ -191,7 +182,6 @@ def shipments():
             print(f"Error creating shipment: {e}")
             return "Error creating shipment", 500
     
-    # GET request - display all shipments
     try:
         all_shipments = get_all_shipments()
         return render_template("shipments.html", shipments=all_shipments)
@@ -204,11 +194,10 @@ def shipments():
 @app.route("/api/shipments/<int:shipment_id>", methods=["GET", "PUT", "DELETE"])
 @limiter.limit("100 per hour")
 def api_shipments_full(shipment_id=None):
-    """REST API endpoint for shipments with full CRUD"""
+    """REST API endpoint for shipments"""
     
     # GET single shipment
     if request.method == "GET" and shipment_id:
-        # Require authentication for API access
         if "user" not in session:
             return jsonify({"error": "Unauthorized"}), 401
         
@@ -226,7 +215,6 @@ def api_shipments_full(shipment_id=None):
     
     # GET all shipments
     if request.method == "GET":
-        # Require authentication for API access
         if "user" not in session:
             return jsonify({"error": "Unauthorized"}), 401
         
@@ -250,7 +238,6 @@ def api_shipments_full(shipment_id=None):
         origin = data.get("origin", "").strip()
         destination = data.get("destination", "").strip()
         
-        # Validate
         errors = validate_shipment_data(status, origin, destination)
         if errors:
             return jsonify({"error": ", ".join(errors)}), 400
@@ -259,7 +246,7 @@ def api_shipments_full(shipment_id=None):
             tracking_number = generate_tracking_number()
             shipment_id = create_shipment(tracking_number, status, origin, destination)
             
-            # Log event
+            # Log event to MongoDB
             log_event(
                 event_type="shipment_created",
                 tracking_number=tracking_number,
@@ -283,7 +270,6 @@ def api_shipments_full(shipment_id=None):
         origin = data.get("origin", "").strip()
         destination = data.get("destination", "").strip()
         
-        # Validate
         errors = validate_shipment_data(status, origin, destination)
         if errors:
             return jsonify({"error": ", ".join(errors)}), 400
@@ -291,9 +277,9 @@ def api_shipments_full(shipment_id=None):
         try:
             success = update_shipment(shipment_id, status, origin, destination)
             if success:
-                # Get shipment for event logging
                 shipment = get_shipment_by_id(shipment_id)
                 if shipment:
+                    # Log event to MongoDB
                     log_event(
                         event_type="shipment_updated",
                         tracking_number=shipment["tracking_number"],
@@ -314,12 +300,12 @@ def api_shipments_full(shipment_id=None):
             return jsonify({"error": "Unauthorized"}), 401
         
         try:
-            # Get shipment before deleting
             shipment = get_shipment_by_id(shipment_id)
             
             success = delete_shipment(shipment_id)
             if success:
                 if shipment:
+                    # Log event to MongoDB
                     log_event(
                         event_type="shipment_deleted",
                         tracking_number=shipment["tracking_number"],
@@ -337,7 +323,6 @@ def api_shipments_full(shipment_id=None):
 
 @app.route("/shipments/<int:shipment_id>/update", methods=["POST"])
 def update_shipment_route(shipment_id):
-    # Require login
     if "user" not in session:
         return redirect("/login")
     
@@ -345,7 +330,6 @@ def update_shipment_route(shipment_id):
     origin = request.form.get("origin", "").strip()
     destination = request.form.get("destination", "").strip()
     
-    # Validate input
     errors = validate_shipment_data(status, origin, destination)
     if errors:
         return f"Validation errors: {', '.join(errors)}", 400
@@ -353,7 +337,6 @@ def update_shipment_route(shipment_id):
     try:
         success = update_shipment(shipment_id, status, origin, destination)
         if success:
-            # Get shipment details for event logging
             shipment = get_shipment_by_id(shipment_id)
             if shipment:
                 # Log event to MongoDB
@@ -374,18 +357,16 @@ def update_shipment_route(shipment_id):
 
 @app.route("/shipments/<int:shipment_id>/delete", methods=["POST"])
 def delete_shipment_route(shipment_id):
-    # Require login
     if "user" not in session:
         return redirect("/login")
     
     try:
-        # Get shipment details before deleting for event logging
         shipment = get_shipment_by_id(shipment_id)
         
         success = delete_shipment(shipment_id)
         if success:
-            # Log event to MongoDB
             if shipment:
+                # Log event to MongoDB
                 log_event(
                     event_type="shipment_deleted",
                     tracking_number=shipment["tracking_number"],
@@ -403,7 +384,6 @@ def delete_shipment_route(shipment_id):
 
 @app.route("/events")
 def events():
-    # Require login
     if "user" not in session:
         return redirect("/login")
     
@@ -420,7 +400,6 @@ def events():
 def api_events():
     """REST API endpoint for events"""
     if request.method == "GET":
-        # Require authentication for API access
         if "user" not in session:
             return jsonify({"error": "Unauthorized"}), 401
         
@@ -432,7 +411,6 @@ def api_events():
             return jsonify({"error": "Failed to fetch events"}), 500
     
     elif request.method == "POST":
-        # Require login for POST
         if "user" not in session:
             return jsonify({"error": "Unauthorized"}), 401
         
@@ -459,7 +437,6 @@ def api_events():
 def api_event_single(event_id):
     """Update or delete a single event"""
     
-    # Require authentication
     if "user" not in session:
         return jsonify({"error": "Unauthorized"}), 401
     
@@ -493,7 +470,6 @@ def api_event_single(event_id):
 @app.route("/geocode", methods=["GET", "POST"])
 @limiter.limit("50 per hour")
 def geocode():
-    # Require login
     if "user" not in session:
         return redirect("/login")
     
@@ -511,7 +487,6 @@ def geocode():
             error = "City name contains invalid characters"
         else:
             try:
-                # Call the Cloud Function
                 cloud_function_url = "https://us-central1-sd-logistics-486104.cloudfunctions.net/geocode_city"
                 response = requests.get(cloud_function_url, params={"city": city})
                 
@@ -528,7 +503,6 @@ def geocode():
 @app.route("/distance", methods=["GET", "POST"])
 @limiter.limit("50 per hour")
 def distance():
-    # Require login
     if "user" not in session:
         return redirect("/login")
     
@@ -551,7 +525,6 @@ def distance():
             error = "Destination contains invalid characters"
         else:
             try:
-                # Call the Cloud Function
                 cloud_function_url = "https://us-central1-sd-logistics-486104.cloudfunctions.net/distance_eta"
                 response = requests.get(cloud_function_url, params={"origin": origin, "destination": destination})
                 

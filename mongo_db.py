@@ -5,24 +5,23 @@ from pymongo import MongoClient
 from bson import ObjectId
 
 def get_mongo_connection():
-    """Get MongoDB connection using MONGODB_URI environment variable"""
+    """Get MongoDB connection"""
     mongo_uri = os.environ.get('MONGODB_URI')
     if not mongo_uri:
         raise RuntimeError("MONGODB_URI environment variable is not set")
     
-    # Use proper SSL/TLS with certificate validation
     client = MongoClient(
         mongo_uri,
         tls=True,
-        tlsCAFile=certifi.where(),  # Proper certificate validation
+        tlsCAFile=certifi.where(),
         serverSelectionTimeoutMS=30000,
         socketTimeoutMS=30000
     )
-    db = client.get_database()  # Gets the database specified in the URI
+    db = client.get_database()
     return db
 
 def log_event(event_type, tracking_number=None, status=None, user_id=None, metadata=None):
-    """Log an event to MongoDB events collection"""
+    """Log an event to MongoDB"""
     db = get_mongo_connection()
     events_collection = db['events']
     
@@ -43,20 +42,18 @@ def get_all_events(limit=50):
     db = get_mongo_connection()
     events_collection = db['events']
     
-    # Get events sorted by timestamp (newest first), limited to 50
     events = list(events_collection.find().sort('timestamp', -1).limit(limit))
     
     # Convert ObjectId to string for JSON serialization
     for event in events:
         event['_id'] = str(event['_id'])
-        # Convert datetime to ISO format string
         if isinstance(event.get('timestamp'), datetime):
             event['timestamp'] = event['timestamp'].isoformat()
     
     return events
 
 def create_event(event_type, timestamp=None, **kwargs):
-    """Create a custom event (for API POST)"""
+    """Create a custom event"""
     db = get_mongo_connection()
     events_collection = db['events']
     
@@ -84,7 +81,7 @@ def update_event(event_id, **updates):
         if result.modified_count > 0:
             return True
         else:
-            return False  # Event not found or no changes
+            return False
     except Exception as e:
         print(f"Error updating event: {e}")
         return False
@@ -101,7 +98,7 @@ def delete_event(event_id):
         if result.deleted_count > 0:
             return True
         else:
-            return False  # Event not found
+            return False
     except Exception as e:
         print(f"Error deleting event: {e}")
         return False

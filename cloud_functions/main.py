@@ -9,33 +9,28 @@ GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 @lru_cache(maxsize=100)
 def get_cached_geocode(city):
-    """
-    Get geocoding data with caching to reduce API calls
-    """
+    """Get geocoding data with caching"""
     max_retries = 3
-    retry_delay = 1  # seconds
+    retry_delay = 1
     
     for attempt in range(max_retries):
         try:
-            # Make request with timeout
             response = requests.get(
                 'https://maps.googleapis.com/maps/api/geocode/json',
                 params={
                     'address': city,
                     'key': GOOGLE_MAPS_API_KEY
                 },
-                timeout=5  # 5 second timeout
+                timeout=5
             )
             
             if response.status_code == 200:
                 data = response.json()
                 
-                # Check if geocoding was successful
                 if data.get('status') == 'OK' and data.get('results'):
                     result = data['results'][0]
                     location = result['geometry']['location']
                     
-                    # Return cleaned, structured data
                     return {
                         'success': True,
                         'city': city,
@@ -54,7 +49,6 @@ def get_cached_geocode(city):
                     # API returned error status
                     error_msg = data.get('error_message', data.get('status', 'Unknown error'))
                     if attempt < max_retries - 1:
-                        # Exponential backoff: 1s, 2s, 4s
                         time.sleep(retry_delay * (2 ** attempt))
                         continue
                     return {
@@ -62,7 +56,6 @@ def get_cached_geocode(city):
                         'error': f'Geocoding API error: {error_msg}'
                     }
             else:
-                # HTTP error
                 if attempt < max_retries - 1:
                     time.sleep(retry_delay * (2 ** attempt))
                     continue
@@ -101,10 +94,7 @@ def get_cached_geocode(city):
 
 @functions_framework.http
 def geocode_city(request):
-    """
-    HTTP Cloud Function to geocode a city name
-    Enhanced with validation, retry logic, caching, and error handling
-    """
+    """Geocode a city name to coordinates"""
     # Enable CORS
     if request.method == 'OPTIONS':
         headers = {
@@ -119,7 +109,6 @@ def geocode_city(request):
         'Access-Control-Allow-Origin': '*'
     }
 
-    # Input validation
     city = request.args.get('city')
     
     if not city:
@@ -129,7 +118,6 @@ def geocode_city(request):
             headers
         )
     
-    # Validate city name length
     city = city.strip()
     if len(city) < 2:
         return (
@@ -145,7 +133,6 @@ def geocode_city(request):
             headers
         )
     
-    # Check for invalid characters
     invalid_chars = ['<', '>', ';', '"', "'", '\\', '`']
     if any(char in city for char in invalid_chars):
         return (
@@ -154,14 +141,11 @@ def geocode_city(request):
             headers
         )
     
-    # Get geocoding data (with caching and retry logic)
     result = get_cached_geocode(city)
     
-    # Mark if result was from cache
     if result.get('success') and city in get_cached_geocode.cache_info()._asdict():
         result['cached'] = True
     
-    # Return appropriate status code
     status_code = 200 if result.get('success') else 400
     
     return (result, status_code, headers)
