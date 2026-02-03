@@ -61,30 +61,30 @@ def test_logout_redirects_to_login(client):
 # ===== API TESTS =====
 
 def test_api_shipments_endpoint_exists(client):
-    """Test that API shipments endpoint exists and returns JSON"""
+    """Test that API shipments endpoint requires authentication"""
     response = client.get('/api/shipments')
-    assert response.status_code == 200
+    assert response.status_code == 401  # Requires auth
     assert response.content_type == 'application/json'
 
 def test_api_shipments_returns_list(client):
-    """Test that API shipments returns a list"""
+    """Test that API shipments requires authentication"""
     response = client.get('/api/shipments')
-    assert response.status_code == 200
+    assert response.status_code == 401  # Requires auth
     data = response.get_json()
-    assert isinstance(data, list)
+    assert 'error' in data
 
 def test_api_events_endpoint_exists(client):
-    """Test that API events endpoint exists"""
+    """Test that API events endpoint requires authentication"""
     response = client.get('/api/events')
-    assert response.status_code == 200
+    assert response.status_code == 401  # Requires auth
     assert response.content_type == 'application/json'
 
 def test_api_events_returns_list(client):
-    """Test that API events returns a list"""
+    """Test that API events requires authentication"""
     response = client.get('/api/events')
-    assert response.status_code == 200
+    assert response.status_code == 401  # Requires auth
     data = response.get_json()
-    assert isinstance(data, list)
+    assert 'error' in data
 
 # ===== VALIDATION TESTS =====
 
@@ -136,11 +136,11 @@ def test_404_handler(client):
 # ===== RATE LIMITING TESTS =====
 
 def test_rate_limiting_exists(client):
-    """Test that rate limiting is configured (doesn't error on valid requests)"""
+    """Test that rate limiting is configured (API returns 401 for unauth requests)"""
     # Make a few requests to ensure rate limiter is working
     for i in range(5):
         response = client.get('/api/shipments')
-        assert response.status_code == 200
+        assert response.status_code == 401  # Requires auth
 
 # ===== AUTHENTICATION API TESTS =====
 
